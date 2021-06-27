@@ -173,7 +173,7 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
         );
 
 
-        $url  = 'http://185.165.118.211:14000/raypay/api/v1/Payment/getPaymentTokenWithUserID';
+        $url  = 'https://api.raypay.ir/raypay/api/v1/Payment/getPaymentTokenWithUserID';
         $options = array('Content-Type: application/json');
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -235,7 +235,7 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
 
             if ( md5($amount . $order->id . Configuration::get('raypay_HASH_KEY')) == $_GET['hash']) {
                 $data = array('order_id' => $order_id);
-                $url = 'http://185.165.118.211:14000/raypay/api/v1/Payment/checkInvoice?pInvoiceID=' . $invoice_id;;
+                $url = 'https://api.raypay.ir/raypay/api/v1/Payment/checkInvoice?pInvoiceID=' . $invoice_id;;
                 $options = array('Content-Type: application/json');
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, $url);
