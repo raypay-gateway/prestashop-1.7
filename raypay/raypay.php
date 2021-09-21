@@ -69,7 +69,8 @@ class RayPay extends PaymentModule
 
         if (Tools::isSubmit('raypay_submit')) {
             Configuration::updateValue('raypay_user_id', $_POST['raypay_user_id']);
-            Configuration::updateValue('raypay_acceptor_code', $_POST['raypay_acceptor_code']);
+            Configuration::updateValue('raypay_marketing_id', $_POST['raypay_marketing_id']);
+            Configuration::updateValue('raypay_sandbox', $_POST['raypay_sandbox']);
             Configuration::updateValue('raypay_currency', $_POST['raypay_currency']);
             Configuration::updateValue('raypay_success_massage', $_POST['raypay_success_massage']);
             Configuration::updateValue('raypay_failed_massage', $_POST['raypay_failed_massage']);
@@ -90,8 +91,10 @@ class RayPay extends PaymentModule
         $this->_html .= '<div align="center"><form action="' . $_SERVER['REQUEST_URI'] . '" method="post">';
         $this->_html .= $this->l('شناسه کاربری : ') . '<br><br>';
         $this->_html .= '<input type="text" name="raypay_user_id" value="' . Configuration::get('raypay_user_id') . '" ><br><br>';
-        $this->_html .= $this->l('کد پذیرنده  : ') . '<br><br>';
-        $this->_html .= '<input type="text" name="raypay_acceptor_code" value="' . Configuration::get('raypay_acceptor_code') . '" ><br><br>';
+        $this->_html .= $this->l('شناسه کسب و کار  : ') . '<br><br>';
+        $this->_html .= '<input type="text" name="raypay_marketing_id" value="' . Configuration::get('raypay_marketing_id') . '" ><br><br>';
+        $this->_html .= $this->l('فعالسازی SandBox :') . '<br><br>';
+        $this->_html .= '<select name="raypay_sandbox"><option value="yes"' . (Configuration::get('raypay_sandbox') == "yes" ? 'selected="selected"' : "") . '>' . $this->l('بله') . '</option><option value="no"' . (Configuration::get('raypay_sandbox') == "no" ? 'selected="selected"' : "") . '>' . $this->l('خیر') . '</option></select><br><br>';
         $this->_html .= $this->l('واحد پول :') . '<br><br>';
         $this->_html .= '<select name="raypay_currency"><option value="rial"' . (Configuration::get('raypay_currency') == "rial" ? 'selected="selected"' : "") . '>' . $this->l('Rial') . '</option><option value="toman"' . (Configuration::get('raypay_currency') == "toman" ? 'selected="selected"' : "") . '>' . $this->l('Toman') . '</option></select><br><br>';
         $this->_html .= $this->l('پیام پرداخت موفق :') . '<br><br>';

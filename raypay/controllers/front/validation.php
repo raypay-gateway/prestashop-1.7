@@ -128,7 +128,8 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
 
 
         $user_id = Configuration::get('raypay_user_id');
-        $acceptor_code = Configuration::get('raypay_acceptor_code');
+        $marketing_id = Configuration::get('raypay_marketing_id');
+        $sandbox = !(Configuration::get('raypay_sandbox') == 'no');
         $amount = $cart->getOrderTotal();
         if (Configuration::get('raypay_currency') == "toman") {
             $amount *= 10;
@@ -151,7 +152,7 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
 
         $desc = 'پرداخت فروشگاه پرستاشاپ، سفارش شماره: ' . $order_id;
         $url = $this->context->link->getModuleLink('raypay', 'validation', array(), true);
-        $callback =  $url. '?do=callback&hash=' .md5($amount . $order_id . Configuration::get('raypay_HASH_KEY')) . '&order_id=' . $order_id . '&' ;
+        $callback =  $url. '?do=callback&hash=' .md5($amount . $order_id . Configuration::get('raypay_HASH_KEY')) . '&order_id=' . $order_id;
 
         if (empty($amount)) {
             $this->errors[] = $this->otherStatusMessages(404);
@@ -165,15 +166,16 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
             'userID'       => $user_id,
             'redirectUrl'  => $callback,
             'factorNumber' => strval($order_id),
-            'acceptorCode' => $acceptor_code,
+            'marketingID' => $marketing_id,
             'email'        => $mail,
             'mobile'       => $phone,
             'fullName'     => $name,
-            'comment'      => $desc
+            'comment'      => $desc,
+            'enableSandBox'      => $sandbox
         );
 
 
-        $url  = 'https://api.raypay.ir/raypay/api/v1/Payment/getPaymentTokenWithUserID';
+        $url  = 'https://api.raypay.ir/raypay/api/v1/Payment/pay';
         $options = array('Content-Type: application/json');
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -201,15 +203,10 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
             Tools::redirect('index.php?controller=order-confirmation');
 
         } else {
-            $access_token = $result->Data->Accesstoken;
-            $terminal_id  = $result->Data->TerminalID;
-
-            echo '<p style="color:#ff0000; font:18px Tahoma; direction:rtl;">در حال اتصال به درگاه بانکی. لطفا صبر کنید ...</p>';
-            echo '<form name="frmRayPayPayment" method="post" action=" https://mabna.shaparak.ir:8080/Pay ">';
-            echo '<input type="hidden" name="TerminalID" value="' . $terminal_id . '" />';
-            echo '<input type="hidden" name="token" value="' . $access_token . '" />';
-            echo '<input class="submit" type="submit" value="پرداخت" /></form>';
-            echo '<script>document.frmRayPayPayment.submit();</script>';
+            $token = $result->Data;
+            $link='https://my.raypay.ir/ipg?token=' . $token;
+            Tools::redirect($link);
+            exit;
     }
 
     }
@@ -222,12 +219,11 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
     {
             $order_id = $_GET['order_id'];
             $order = new Order((int)$order_id);
-            $invoice_id = $_GET['?invoiceID'];
             $amount = (float)$order->total_paid_tax_incl;
 
 
 
-        if (!empty( $invoice_id ) && !empty( $order_id )) {
+        if (!empty( $order_id )) {
 
             if (Configuration::get('raypay_currency') == "toman") {
                 $amount *= 10;
@@ -235,11 +231,11 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
 
             if ( md5($amount . $order->id . Configuration::get('raypay_HASH_KEY')) == $_GET['hash']) {
                 $data = array('order_id' => $order_id);
-                $url = 'https://api.raypay.ir/raypay/api/v1/Payment/checkInvoice?pInvoiceID=' . $invoice_id;;
+                $url = 'https://api.raypay.ir/raypay/api/v1/Payment/verify';
                 $options = array('Content-Type: application/json');
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, $url);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($_POST));
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
                 curl_setopt($ch, CURLOPT_HTTPHEADER, $options);
                 $result = curl_exec($ch);
@@ -255,16 +251,17 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
                         Tools::redirect('index.php?controller=order-confirmation');
 
                     } else {
-                        $state           = $result->Data->State;
+                        $state           = $result->Data->Status;
                         $verify_order_id = $result->Data->FactorNumber;
+                        $verify_invoice_id = $result->Data->InvoiceID;
                         $verify_amount   = $result->Data->Amount;
 
                         if (empty($verify_order_id) || empty($verify_amount) || $state !== 1) {
 
                             //generate msg and save to database as order
-                            $msgForSaveDataTDataBase = 'پرداخت ناموفق بوده است. شناسه ارجاع بانکی رای پی : ' . $invoice_id;
+                            $msgForSaveDataTDataBase = 'پرداخت ناموفق بوده است. شناسه ارجاع بانکی رای پی : ' . $verify_invoice_id;
                             $this->saveOrder($msgForSaveDataTDataBase, 8, $order_id);
-                            $msg = $this->raypay_get_failed_message($invoice_id, $verify_order_id);
+                            $msg = $this->raypay_get_failed_message($verify_invoice_id, $verify_order_id);
                             $this->errors[] = $msg;
                             $this->notification();
                             Tools::redirect('index.php?controller=order-confirmation');
@@ -279,7 +276,7 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
                             $msgForSaveDataTDataBase = 'پرداخت شما با موفقیت انجام شد.';
                             $this->saveOrder($msgForSaveDataTDataBase,Configuration::get('PS_OS_PAYMENT'),$order_id);
 
-                            $this->success[] = $this->raypay_get_success_message($invoice_id, $verify_order_id);
+                            $this->success[] = $this->raypay_get_success_message($verify_invoice_id, $verify_order_id);
                             $this->notification();
                             /**
                              * Redirect the customer to the order confirmation page
@@ -290,8 +287,8 @@ class RayPayValidationModuleFrontController extends ModuleFrontController
                         }
                     }
             } else {
-
-                $this->errors[] = $this->raypay_get_failed_message($invoice_id ,$order_id, 405);
+                $invoice_id = $_POST['invoiceid'];
+                $this->errors[] = $this->raypay_get_failed_message($invoice_id ,$order_id);
                 $this->notification();
                 $msgForSaveDataTDataBase = 'سفارش پیدا نشد.';
                 $this->saveOrder($msgForSaveDataTDataBase, 8, $order_id);
